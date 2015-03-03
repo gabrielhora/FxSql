@@ -5,6 +5,7 @@ open System.Data
 open System.Text.RegularExpressions
 open System.IO
 open Dapper
+open System.Runtime.InteropServices
 
 
 /// <summary>
@@ -26,8 +27,20 @@ type DisposableConnection(con : IDbConnection) =
 /// <summary>
 /// The query runner
 /// </summary>
-type Query = 
-    { Name: string; Text: string; mutable Connection: DisposableConnection option }
+type Query =
+    { Name: string;
+      Text: string;
+      mutable Connection: DisposableConnection option }
+
+    member private this.RunQuery (param : obj, trans : IDbTransaction, buffered : bool, cmdTimeout : Nullable<int>, cmdType : Nullable<CommandType>) =
+        match this.Connection with
+        | None -> raise (new Exception("No IDbConnection specified"))
+        | Some(dc) -> SqlMapper.Query(dc.Connection, this.Text, param, trans, buffered, cmdTimeout, cmdType)
+
+    member private this.RunQuery<'T> (param : obj, trans : IDbTransaction, buffered : bool, cmdTimeout : Nullable<int>, cmdType : Nullable<CommandType>) =
+        match this.Connection with
+        | None -> raise (new Exception("No IDbConnection specified"))
+        | Some(dc) -> SqlMapper.Query<'T>(dc.Connection, this.Text, param, trans, buffered, cmdTimeout, cmdType)
 
     /// <summary>
     /// Run the query and return a IEnumerable<object>
@@ -38,60 +51,53 @@ type Query =
         let buffered = defaultArg buffered0 true
         let cmdTimeout = defaultArg cmdTimeout0 (Nullable<int>())
         let cmdType = defaultArg cmdType0 (Nullable<CommandType>())
-        match this.Connection with
-        | None -> raise (new Exception("No IDbConnection specified"))
-        | Some(dc) ->
-            SqlMapper.Query(dc.Connection, this.Text, param, trans, buffered, cmdTimeout, cmdType)
-
-    (* These methods facilitate the use from C# *)
-
-    member this.Query (param : obj) = this.Query(param, null, true, Nullable<int>(), Nullable<CommandType>())
-    member this.Query (param : obj, trans : IDbTransaction) = this.Query(param, trans, true, Nullable<int>(), Nullable<CommandType>())
-    member this.Query (param : obj, trans : IDbTransaction, buffered : bool) = this.Query(param, trans, buffered, Nullable<int>(), Nullable<CommandType>())
-    member this.Query (param : obj, trans : IDbTransaction, buffered : bool, commandTimeout : int) = this.Query(param, trans, buffered, Nullable(commandTimeout), Nullable<CommandType>())
-    member this.Query (param : obj, trans : IDbTransaction, buffered : bool, commandTimeout : int, commandType : CommandType) = this.Query(param, trans, buffered, Nullable(commandTimeout), Nullable(commandType))
+        this.RunQuery(param, trans, buffered, cmdTimeout, cmdType)
 
     /// <summary>
     /// Run the query and return a typed IEnumerable
     /// </summary>
-    member this.Query<'a> (?param0 : obj, ?trans0 : IDbTransaction, ?buffered0 : bool, ?cmdTimeout0 : Nullable<int>, ?cmdType0 : Nullable<CommandType>) =
+    member this.Query<'T> (?param0 : obj, ?trans0 : IDbTransaction, ?buffered0 : bool, ?cmdTimeout0 : Nullable<int>, ?cmdType0 : Nullable<CommandType>) =
         let param = defaultArg param0 null
         let trans = defaultArg trans0 null
         let buffered = defaultArg buffered0 true
         let cmdTimeout = defaultArg cmdTimeout0 (Nullable<int>())
         let cmdType = defaultArg cmdType0 (Nullable<CommandType>())
-        match this.Connection with
-        | None -> raise (new Exception("No IDbConnection specified"))
-        | Some(dc) ->
-            SqlMapper.Query<'a>(dc.Connection, this.Text, param, trans, buffered, cmdTimeout, cmdType)
+        this.RunQuery<'T>(param, trans, buffered, cmdTimeout, cmdType)
 
-    (* These methods facilitate the use from C# *)
+    /// <summary>
+    /// Run the query and return the first row
+    /// </summary>
+    member this.First (?param0 : obj, ?trans0 : IDbTransaction, ?buffered0 : bool, ?cmdTimeout0 : Nullable<int>, ?cmdType0 : Nullable<CommandType>) =
+        let param = defaultArg param0 null
+        let trans = defaultArg trans0 null
+        let buffered = defaultArg buffered0 true
+        let cmdTimeout = defaultArg cmdTimeout0 (Nullable<int>())
+        let cmdType = defaultArg cmdType0 (Nullable<CommandType>())
+        this.RunQuery(param, trans, buffered, cmdTimeout, cmdType) |> Seq.tryPick Some
 
-    member this.Query<'a> (param : obj) = this.Query<'a>(param, null, true, Nullable<int>(), Nullable<CommandType>())
-    member this.Query<'a> (param : obj, trans : IDbTransaction) = this.Query<'a>(param, trans, true, Nullable<int>(), Nullable<CommandType>())
-    member this.Query<'a> (param : obj, trans : IDbTransaction, buffered : bool) = this.Query<'a>(param, trans, buffered, Nullable<int>(), Nullable<CommandType>())
-    member this.Query<'a> (param : obj, trans : IDbTransaction, buffered : bool, commandTimeout : int) = this.Query<'a>(param, trans, buffered, Nullable(commandTimeout), Nullable<CommandType>())
-    member this.Query<'a> (param : obj, trans : IDbTransaction, buffered : bool, commandTimeout : int, commandType : CommandType) = this.Query<'a>(param, trans, buffered, Nullable(commandTimeout), Nullable(commandType))
+    /// <summary>
+    /// Run the query and return the first row
+    /// </summary>
+    member this.First<'T> (?param0 : obj, ?trans0 : IDbTransaction, ?buffered0 : bool, ?cmdTimeout0 : Nullable<int>, ?cmdType0 : Nullable<CommandType>) =
+        let param = defaultArg param0 null
+        let trans = defaultArg trans0 null
+        let buffered = defaultArg buffered0 true
+        let cmdTimeout = defaultArg cmdTimeout0 (Nullable<int>())
+        let cmdType = defaultArg cmdType0 (Nullable<CommandType>())
+        this.RunQuery<'T>(param, trans, buffered, cmdTimeout, cmdType) |> Seq.tryPick Some
 
     /// <summary>
     /// Run a scalar query and return the number of changed rows
     /// </summary>
-    member this.Execute (?param0 : obj, ?trans0 : IDbTransaction, ?cmdTimeout0 : Nullable<int>, ?cmdType0 : Nullable<CommandType>) =
+    member this.Execute (?param0 : obj, [<Optional>] ?trans0 : IDbTransaction, ?cmdTimeout0 : Nullable<int>, ?cmdType0 : Nullable<CommandType>) =
         let param = defaultArg param0 null
         let trans = defaultArg trans0 null
         let cmdTimeout = defaultArg cmdTimeout0 (Nullable<int>())
         let cmdType = defaultArg cmdType0 (Nullable<CommandType>())
+
         match this.Connection with
         | None -> raise (new Exception("No IDbConnection specified"))
-        | Some(dc) ->
-            SqlMapper.Execute(dc.Connection, this.Text, param, trans, cmdTimeout, cmdType)
-
-    (* These methods facilitate the use from C# *)
-
-    member this.Execute (param : obj) = this.Execute(param, null, Nullable<int>(), Nullable<CommandType>())
-    member this.Execute (param : obj, trans : IDbTransaction) = this.Execute(param, trans, Nullable<int>(), Nullable<CommandType>())
-    member this.Execute (param : obj, trans : IDbTransaction, commandTimeout : int) = this.Execute(param, trans, Nullable(commandTimeout), Nullable<CommandType>())
-    member this.Execute (param : obj, trans : IDbTransaction, commandTimeout : int, commandType : CommandType) = this.Execute(param, trans, Nullable(commandTimeout), Nullable(commandType))
+        | Some(dc) -> SqlMapper.Execute(dc.Connection, this.Text, param, trans, cmdTimeout, cmdType)
 
 
 (* Parse a query into a Query type *)

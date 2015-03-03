@@ -28,7 +28,12 @@ let main argv =
     con.Open()
 
     let db = (new Database(con)).FromString sql
-    let result = db?OneClient.Query { Id = 4 }
+    
+    use trans = con.BeginTransaction()
+    
+    let result = db?OneClient.Query { Id = 4 }, trans
+
+    trans.Commit()
 
     //db.["OneClient"].query ["Id", 1] |> Map.ofList
 

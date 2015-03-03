@@ -21,9 +21,11 @@ namespace ConsoleApplication2
                 SELECT * FROM Clients
                 WHERE Id = @Id;";
 
-            var list = FxSql.parse("");
             var db = new FxSql.Database(con).FromString(sql);
-            var result = db["OneClient"].Query(new { Id = 4 });
+
+            //db["OneClient"].Query();
+
+            //var result = db["OneClient"].Query(new { Id = 4 });
         }
     }
 }
