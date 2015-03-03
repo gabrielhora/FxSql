@@ -11,7 +11,7 @@ open System.Runtime.InteropServices
 /// <summary>
 /// IDbConnection wrapper to keep the state of the connection unchanged
 /// </summary>
-type DisposableConnection(con : IDbConnection) =
+type DisposableConnection (con : IDbConnection) =
     let dispose = con.State = ConnectionState.Closed
     do if dispose then con.Open()
     
