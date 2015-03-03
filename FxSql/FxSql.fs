@@ -5,7 +5,6 @@ open System.Data
 open System.Text.RegularExpressions
 open System.IO
 open Dapper
-open System.Runtime.InteropServices
 
 
 /// <summary>
@@ -89,7 +88,7 @@ type Query =
     /// <summary>
     /// Run a scalar query and return the number of changed rows
     /// </summary>
-    member this.Execute (?param0 : obj, [<Optional>] ?trans0 : IDbTransaction, ?cmdTimeout0 : Nullable<int>, ?cmdType0 : Nullable<CommandType>) =
+    member this.Execute (?param0 : obj, ?trans0 : IDbTransaction, ?cmdTimeout0 : Nullable<int>, ?cmdType0 : Nullable<CommandType>) =
         let param = defaultArg param0 null
         let trans = defaultArg trans0 null
         let cmdTimeout = defaultArg cmdTimeout0 (Nullable<int>())
